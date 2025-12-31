@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teachable Machine | 即時影像分類</title>
+
+  <style>
+    :root{
+      --bg1:#0b1020;
+      --bg2:#1b2a4a;
+      --card:rgba(255,255,255,.10);
+      --card2:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.18);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.70);
+      --shadow: 0 18px 50px rgba(0,0,0,.35);
+      --radius: 22px;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Noto Sans TC","PingFang TC",sans-serif;
+      background:
+        radial-gradient(900px 520px at 20% 15%, rgba(255,255,255,.12), transparent 55%),
+        radial-gradient(700px 440px at 85% 25%, rgba(255,255,255,.10), transparent 60%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .shell{
+      width:min(980px, 100%);
+      display:grid;
+      gap:18px;
+    }
+
+    header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      padding:14px 4px;
+    }
+
+    .title{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .badge{
+      width:42px;height:42px;
+      border-radius:14px;
+      background: linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.06));
+      border:1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      display:grid;place-items:center;
+      user-select:none;
+    }
+    .badge span{ font-size:20px; }
+
+    h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:.3px;
+      line-height:1.2;
+    }
+    .sub{
+      margin-top:6px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .panel{
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .content{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:16px;
+      padding:18px;
+    }
+
+    @media (max-width: 860px){
+      .content{ grid-template-columns: 1fr; }
+    }
+
+    .left, .right{
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.16);
+      padding:16px;
+    }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      padding:14px 18px;
+      border-top: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.14);
+    }
+
+    .btns{ display:flex; gap:10px; flex-wrap:wrap; }
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      color:var(--text);
+      font-weight:650;
+      letter-spacing:.2px;
+      padding:10px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.18);
+      transition: transform .12s ease, background .12s ease, opacity .12s ease;
+    }
+    button:hover{ transform: translateY(-1px); background: rgba(255,255,255,.18); }
+    button:active{ transform: translateY(0px); opacity:.9; }
+    button:disabled{ opacity:.5; cursor:not-allowed; }
+
+    .primary{
+      background: linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.10));
+    }
+
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:8px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.08);
+      color: var(--muted);
+      font-size: 12.5px;
+      user-select:none;
+    }
+
+    .gridTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:12px;
+      gap:10px;
+    }
+    .gridTitle h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.25px;
+    }
+
+    #webcam-container{
+      display:grid;
+      place-items:center;
+      padding:6px;
+    }
+    #webcam-container canvas{
+      width: 100%;
+      max-width: 420px;
+      aspect-ratio: 1/1;
+      border-radius: 20px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow: 0 12px 34px rgba(0,0,0,.45);
+      background: rgba(255,255,255,.05);
+    }
+
+    .labels{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .name{
+      font-size:13px;
+      color: rgba(255,255,255,.86);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      min-width:0;
+    }
+
+    .tagTop{
+      font-size:11px;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.10);
+      color: rgba(255,255,255,.85);
+      flex:0 0 auto;
+    }
+
+    .pct{
+      font-variant-numeric: tabular-nums;
+      font-size:12.5px;
+      color: rgba(255,255,255,.78);
+    }
+
+    .bar{
+      height:10px;
+      border-radius:999px;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      overflow:hidden;
+    }
+    .fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: rgba(255,255,255,.55);
+      transition: width .12s ease;
+    }
+
+    .status{
+      margin-top:12px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .footerNote{
+      padding: 0 6px 6px;
+      color: rgba(255,255,255,.55);
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <header>
+      <div class="title">
+        <div class="badge" title="Teachable Machine">
+          <span>📷</span>
+        </div>
+        <div>
+          <h1>即時影像分類</h1>
+          <div class="sub">Teachable Machine + TensorFlow.js · Webcam 預測面板</div>
+        </div>
+      </div>
+
+      <div class="pill" id="model-pill">模型：<strong style="color:rgba(255,255,255,.9)">未載入</strong></div>
+    </header>
+
+    <section class="panel">
+      <div class="content">
+        <div class="left">
+          <div class="gridTitle">
+            <h2>鏡頭畫面</h2>
+            <div class="pill" id="fps-pill">FPS：--</div>
+          </div>
+          <div id="webcam-container"></div>
+          <div class="status" id="status">按下 Start 開始。</div>
+        </div>
+
+        <div class="right">
+          <div class="gridTitle">
+            <h2>預測結果</h2>
+            <div class="pill" id="top-pill">Top：--</div>
+          </div>
+
+          <div class="labels" id="label-container"></div>
+
+          <div class="status" id="error" style="color:#ffb4b4;"></div>
+          <div class="footerNote">提示：建議用 VSCode Live Server 以 localhost 開啟，避免 file:// 造成載入問題。</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="btns">
+          <button class="primary" type="button" id="startBtn" onclick="init()">Start</button>
+          <button type="button" id="stopBtn" onclick="stopCam()" disabled>Stop</button>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div class="pill">鏡像：<strong id="flipText" style="color:rgba(255,255,255,.9)">ON</strong></div>
+          <div class="pill">門檻：<strong id="thText" style="color:rgba(255,255,255,.9)">0.60</strong></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script>
+    const URL = "./my_model/";
+
+    let model, webcam, maxPredictions;
+    let rafId = null;
+    let started = false;
+
+    // UI
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+    const labelContainer = document.getElementById("label-container");
+    const modelPill = document.getElementById("model-pill");
+    const topPill = document.getElementById("top-pill");
+    const fpsPill = document.getElementById("fps-pill");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    // 設定
+    const flip = true;           // webcam鏡像
+    const THRESHOLD = 0.60;      // 顯示「最像」提示的門檻
+    document.getElementById("flipText").textContent = flip ? "ON" : "OFF";
+    document.getElementById("thText").textContent = THRESHOLD.toFixed(2);
+
+    // FPS 計算
+    let lastT = performance.now();
+    let fps = 0;
+
+    function setStatus(msg){ statusEl.textContent = msg; }
+    function setError(msg){ errorEl.textContent = msg || ""; }
+    function setModelLoaded(ok){
+      modelPill.innerHTML = ok
+        ? `模型：<strong style="color:rgba(255,255,255,.9)">已載入</strong>`
+        : `模型：<strong style="color:rgba(255,255,255,.9)">未載入</strong>`;
+    }
+
+    function buildRows(classes){
+      labelContainer.innerHTML = "";
+      for (const c of classes){
+        const wrap = document.createElement("div");
+        wrap.className = "labelItem";
+        wrap.innerHTML = `
+          <div class="row">
+            <div class="name"><span class="labelName"></span><span class="tagTop" style="display:none;">TOP</span></div>
+            <div class="pct">0.00</div>
+          </div>
+          <div class="bar"><div class="fill"></div></div>
+        `;
+        labelContainer.appendChild(wrap);
+      }
+    }
+
+    function render(prediction){
+      // 找 Top1
+      let best = prediction[0];
+      for (const p of prediction) if (p.probability > best.probability) best = p;
+
+      topPill.textContent = `Top：${best.className} (${best.probability.toFixed(2)})`;
+      const hint = best.probability >= THRESHOLD
+        ? `辨識到：${best.className} ✅`
+        : `信心不足（< ${THRESHOLD.toFixed(2)}），請靠近鏡頭或改善光線。`;
+
+      setStatus(`即時預測中…\n${hint}`);
+
+      // 更新每一列
+      const items = labelContainer.children;
+      for (let i = 0; i < prediction.length; i++){
+        const p = prediction[i];
+        const item = items[i];
+
+        const nameEl = item.querySelector(".labelName");
+        const pctEl = item.querySelector(".pct");
+        const fillEl = item.querySelector(".fill");
+        const topTag = item.querySelector(".tagTop");
+
+        nameEl.textContent = p.className;
+        pctEl.textContent = p.probability.toFixed(2);
+        fillEl.style.width = (p.probability * 100).toFixed(0) + "%";
+
+        // Top 標記
+        const isTop = p.className === best.className;
+        topTag.style.display = isTop ? "inline-flex" : "none";
+      }
+
+      // FPS 更新
+      const now = performance.now();
+      const dt = now - lastT;
+      lastT = now;
+      fps = 1000 / Math.max(dt, 1);
+      fpsPill.textContent = `FPS：${fps.toFixed(0)}`;
+    }
+
+    async function init(){
+      if (started) return;
+      started = true;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      setError("");
+      setStatus("載入模型中…");
+      setModelLoaded(false);
+
+      try{
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        setModelLoaded(true);
+
+        // 初始化 labels
+        const dummyClasses = Array.from({length: maxPredictions}, (_,i)=>`Class ${i+1}`);
+        buildRows(dummyClasses);
+
+        setStatus("開啟鏡頭中（請允許權限）…");
+        webcam = new tmImage.Webcam(360, 360, flip);
+        await webcam.setup();
+        await webcam.play();
+
+        // append webcam canvas
+        const wc = document.getElementById("webcam-container");
+        wc.innerHTML = "";
+        wc.appendChild(webcam.canvas);
+
+        rafId = requestAnimationFrame(loop);
+        setStatus("啟動成功 ✅ 正在即時預測中…");
+      }catch(err){
+        started = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        setStatus("啟動失敗 ❌");
+        setError(
+          "錯誤訊息：\n" + (err?.stack || err) +
+          "\n\n檢查：\n1) my_model 是否與 index.html 同層\n2) my_model 內是否有 model.json / metadata.json / weights.bin\n3) 請用 localhost/https 開啟（不要 file://）"
+        );
+        console.error(err);
+      }
+    }
+
+    async function loop(){
+      webcam.update();
+      const prediction = await model.predict(webcam.canvas);
+      render(prediction);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    async function stopCam(){
+      try{
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+
+        if (webcam){
+          await webcam.stop();
+        }
+      }catch(e){
+        console.warn(e);
+      }finally{
+        started = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        setStatus("已停止。按 Start 可再次啟動。");
+        topPill.textContent = "Top：--";
+        fpsPill.textContent = "FPS：--";
+      }
+    }
+  </script>
+</body>
+</html>
